@@ -43,6 +43,8 @@ from typing import Optional
 try:
     import jwt as pyjwt
     import pika
+    import psycopg2
+    import psycopg2.extras
     import pymongo
     import redis
     import requests
@@ -56,7 +58,7 @@ try:
     from rich.text import Text
 except ImportError as exc:
     print(f"[ERROR] Missing dependency: {exc}")
-    print("Install with:  pip install requests rich pika PyJWT faker redis pymongo")
+    print("Install with:  pip install requests rich pika PyJWT faker redis pymongo psycopg2-binary")
     raise SystemExit(1)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -220,9 +222,11 @@ INDEXING_URL    = "http://localhost:8089"
 RABBITMQ_URL    = "amqp://deploy:kaaslabs123@localhost:5672/"
 MONGO_URL       = "mongodb://deploy:kaaslabs123@localhost:27017/"
 MONGO_DB        = "catalog_db"
+MONGO_DISCOVERY_DB = "discovery"
 REDIS_HOST      = "localhost"
 REDIS_PORT      = 6379
 REDIS_PASSWORD  = "kaaslabs123"
+PG_DSN          = "host=localhost user=deploy password=kaaslabs123 dbname=padosme_indexing"
 
 JWT_SECRET      = "this-time-shall-pass"
 EXCHANGE_SELLER = "padosme.events"
@@ -1865,8 +1869,8 @@ def seed_items_mode(args) -> None:
 
 def save_seller_geo(sellers: list[dict]) -> int:
     """
-    Persist seller GPS + info to MongoDB seller_geo collection.
-    This is used as fallback when Redis TTL expires so :product search always works.
+    Persist seller GPS + info to MongoDB catalog_db.seller_geo collection.
+    Used as fallback when Redis TTL expires so :product search always works.
     """
     try:
         client = pymongo.MongoClient(MONGO_URL, authSource="admin", serverSelectionTimeoutMS=5000)
@@ -1891,6 +1895,86 @@ def save_seller_geo(sellers: list[dict]) -> int:
         return len(sellers)
     except Exception as exc:
         log.warning("Could not save seller_geo to MongoDB: %s", exc)
+        return 0
+
+
+def save_to_discovery(sellers: list[dict]) -> int:
+    """
+    Persist sellers to MongoDB discovery.sellers with GeoJSON Point format.
+    Enables geo queries from the discovery service.
+    """
+    try:
+        client = pymongo.MongoClient(MONGO_URL, authSource="admin", serverSelectionTimeoutMS=5000)
+        db = client[MONGO_DISCOVERY_DB]
+        for s in sellers:
+            db.sellers.update_one(
+                {"seller_id": s["seller_id"]},
+                {"$set": {
+                    "_id":               s["seller_id"],
+                    "seller_id":         s["seller_id"],
+                    "name":              s["name"],
+                    "address":           s["address"],
+                    "location": {
+                        "type":        "Point",
+                        "coordinates": [s["longitude"], s["latitude"]],
+                    },
+                    "category":          s["category"],
+                    "subscription_tier": s["subscription_tier"],
+                    "rating":            s["rating"],
+                    "review_count":      s["review_count"],
+                    "available":         True,
+                    "status":            "active",
+                    "entity_type":       "shop",
+                    "city":              "Bangalore",
+                }},
+                upsert=True,
+            )
+        client.close()
+        return len(sellers)
+    except Exception as exc:
+        log.warning("Could not save to discovery.sellers (MongoDB): %s", exc)
+        return 0
+
+
+def save_to_indexed_sellers(sellers: list[dict]) -> int:
+    """
+    Persist sellers to PostgreSQL padosme_indexing.indexed_sellers.
+    Provides durable storage that survives Redis TTL expiry.
+    """
+    try:
+        conn = psycopg2.connect(PG_DSN)
+        cur  = conn.cursor()
+        for s in sellers:
+            cur.execute(
+                """
+                INSERT INTO indexed_sellers
+                    (seller_id, name, latitude, longitude, h3_cell, available, status, entity_type, last_indexed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
+                ON CONFLICT (seller_id) DO UPDATE SET
+                    name            = EXCLUDED.name,
+                    latitude        = EXCLUDED.latitude,
+                    longitude       = EXCLUDED.longitude,
+                    available       = EXCLUDED.available,
+                    status          = EXCLUDED.status,
+                    last_indexed_at = now()
+                """,
+                (
+                    s["seller_id"],
+                    s["name"],
+                    s["latitude"],
+                    s["longitude"],
+                    "",        # h3_cell computed by indexing service
+                    True,
+                    "active",
+                    "shop",
+                ),
+            )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return len(sellers)
+    except Exception as exc:
+        log.warning("Could not save to indexed_sellers (PostgreSQL): %s", exc)
         return 0
 
 
@@ -1921,9 +2005,13 @@ def sync_mode(args) -> None:
     # Build seller dicts with GPS
     sellers = [build_seller_for_sync(doc, i) for i, doc in enumerate(sellers_raw)]
 
-    # Save GPS to MongoDB permanently (fallback for when Redis TTL expires)
-    console.print("[dim]Saving seller locations to MongoDB (permanent)…[/dim]")
+    # Persist to all three stores permanently
+    console.print("[dim]Saving seller locations to MongoDB catalog_db.seller_geo…[/dim]")
     save_seller_geo(sellers)
+    console.print("[dim]Saving sellers to MongoDB discovery.sellers…[/dim]")
+    save_to_discovery(sellers)
+    console.print("[dim]Saving sellers to PostgreSQL indexed_sellers…[/dim]")
+    save_to_indexed_sellers(sellers)
 
     events_ok = events_fail = 0
     t0 = time.perf_counter()
@@ -2081,6 +2169,14 @@ Seed new sellers from scratch:
     # Verify all generated points are within radius (sanity check)
     max_dist = max(haversine_km(BASE_LAT, BASE_LON, s["latitude"], s["longitude"]) for s in sellers)
     console.print(f"[dim]Generated {len(sellers)} sellers — max distance from centre: {max_dist:.2f} km[/dim]")
+
+    # Persist to PostgreSQL and MongoDB before publishing events
+    console.print("[dim]Saving sellers to MongoDB catalog_db.seller_geo…[/dim]")
+    save_seller_geo(sellers)
+    console.print("[dim]Saving sellers to MongoDB discovery.sellers…[/dim]")
+    save_to_discovery(sellers)
+    console.print("[dim]Saving sellers to PostgreSQL indexed_sellers…[/dim]")
+    save_to_indexed_sellers(sellers)
 
     events_ok  = 0
     events_fail = 0
