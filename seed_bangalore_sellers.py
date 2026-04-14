@@ -1137,6 +1137,111 @@ def run_search(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PostgreSQL geo fallback — used when Redis TTL has expired
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_search_pg(
+    keyword: str = "",
+    category: str = "",
+    radius_km: float = 10.0,
+    sort_by: str = "rating",
+    available_only: bool = False,
+    tier: str = "",
+    limit: int = 20,
+    user_lat: float = BASE_LAT,
+    user_lon: float = BASE_LON,
+) -> tuple[int, list[dict]]:
+    """
+    Fallback geo search against PostgreSQL indexed_sellers + catalog_db.seller_geo.
+    Called when Redis FT.SEARCH returns 0 results (TTL expired).
+    """
+    try:
+        conn = psycopg2.connect(PG_DSN)
+        cur  = conn.cursor()
+
+        # Use the Haversine formula inside Postgres to filter by radius
+        cur.execute(
+            """
+            SELECT seller_id, name, latitude, longitude, status
+            FROM   indexed_sellers
+            WHERE  status = 'active'
+              AND  (
+                6371 * acos(
+                  cos(radians(%s)) * cos(radians(latitude)) *
+                  cos(radians(longitude) - radians(%s)) +
+                  sin(radians(%s)) * sin(radians(latitude))
+                )
+              ) <= %s
+            LIMIT %s
+            """,
+            (user_lat, user_lon, user_lat, radius_km, limit * 3),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        if not rows:
+            return 0, []
+
+        # Enrich with category/rating/address from MongoDB seller_geo
+        try:
+            mc   = pymongo.MongoClient(MONGO_URL, authSource="admin", serverSelectionTimeoutMS=2000)
+            geo  = mc["catalog_db"].seller_geo
+            meta = {d["seller_id"]: d for d in geo.find(
+                {"seller_id": {"$in": [r[0] for r in rows]}},
+                {"_id": 0, "seller_id": 1, "category": 1, "rating": 1,
+                 "review_count": 1, "subscription_tier": 1, "address": 1},
+            )}
+            mc.close()
+        except Exception:
+            meta = {}
+
+        docs = []
+        for row in rows:
+            sid, name, lat, lon, status = row
+            m    = meta.get(sid, {})
+            cat  = m.get("category", "")
+            dist = haversine_km(user_lat, user_lon, lat, lon)
+
+            # Apply filters not in SQL
+            if category and cat.lower() != category.lower():
+                continue
+            if tier and m.get("subscription_tier", "") != tier:
+                continue
+
+            docs.append({
+                "seller_id":         sid,
+                "name":              name,
+                "lat":               str(lat),
+                "lon":               str(lon),
+                "category":          cat,
+                "rating":            str(m.get("rating", 0)),
+                "review_count":      str(m.get("review_count", 0)),
+                "subscription_tier": m.get("subscription_tier", "free"),
+                "available":         "true" if status == "active" else "false",
+                "address":           m.get("address", ""),
+                "_dist":             dist,
+            })
+
+        if sort_by == "distance":
+            docs.sort(key=lambda d: d["_dist"])
+        elif sort_by in ("rating", "popularity"):
+            docs.sort(key=lambda d: float(d.get("rating", 0)), reverse=True)
+
+        # keyword filter (client-side)
+        if keyword:
+            kw = keyword.lower()
+            docs = [d for d in docs if kw in d["name"].lower() or kw in d["address"].lower()]
+
+        docs = docs[:limit]
+        return len(docs), docs
+
+    except Exception as exc:
+        log.warning("PostgreSQL fallback search failed: %s", exc)
+        return 0, []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Product search — find specific items in nearby shops
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1487,8 +1592,15 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
 
     def _run():
         total, docs = run_search(r, **state)
+
+        if total == 0:
+            # Redis TTL expired — fall back to PostgreSQL geo search
+            total, docs = run_search_pg(**state)
+            if total > 0:
+                console.print("[dim]  (results from persistent store — Redis index expired)[/dim]")
+
         if total == 0 and state["keyword"]:
-            # Name/address search returned nothing — try product catalogue search
+            # Try product catalogue search as last resort
             product_results = search_products(
                 r, state["keyword"],
                 state["user_lat"], state["user_lon"],
@@ -1501,6 +1613,7 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
                     state["radius_km"],
                 )
                 return
+
         render_search_results(total, docs, _desc(), state["limit"])
 
     _run()
