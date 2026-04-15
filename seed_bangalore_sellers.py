@@ -5790,9 +5790,10 @@ def search_products(
             mdb2 = mc2[MONGO_DB]
             target_cats = list(category_matches.keys())
 
-            # Fetch sellers in the right categories
+            # Fetch ALL sellers within radius (not filtered by category, since
+            # synced sellers may have category inferred from name, not always exact)
             for gdoc in mdb2.seller_geo.find(
-                {"category": {"$in": target_cats}},
+                {},
                 {"_id": 0, "seller_id": 1, "name": 1, "address": 1,
                  "lat": 1, "lon": 1, "rating": 1, "review_count": 1,
                  "subscription_tier": 1, "category": 1},
@@ -5807,7 +5808,7 @@ def search_products(
                     continue
                 seen.add(gsid)
 
-                # Fetch real items for this seller
+                # Fetch real items for this seller — exact name match first
                 real_items = list(mdb2.items.find(
                     {"seller_id": gsid,
                      "name": {"$regex": product_lower, "$options": "i"}},
@@ -5815,6 +5816,17 @@ def search_products(
                      "quantity": 1, "tags": 1},
                     limit=6,
                 ))
+                # If no exact name match, show representative items from the
+                # seller's category (handles generic queries like "medical",
+                # "pharmacy", "condom", "grocery", etc.)
+                if not real_items:
+                    real_items = list(mdb2.items.find(
+                        {"seller_id": gsid,
+                         "category": {"$in": list(category_matches.keys())}},
+                        {"_id": 0, "name": 1, "category": 1, "price": 1,
+                         "quantity": 1, "tags": 1},
+                        limit=6,
+                    ))
                 if not real_items:
                     continue
 
@@ -6774,7 +6786,8 @@ def _restore_redis_from_mongo(r: redis.Redis) -> int:
         sid = s.get("seller_id") or str(uuid.uuid4())
         lat = float(s.get("lat", BASE_LAT))
         lon = float(s.get("lon", BASE_LON))
-        pipe.hset(f"seller:{sid}", mapping={
+        key = f"seller:{sid}"
+        pipe.hset(key, mapping={
             "seller_id":         sid,
             "name":              s.get("name", ""),
             "address":           s.get("address", "Bangalore"),
@@ -6790,6 +6803,7 @@ def _restore_redis_from_mongo(r: redis.Redis) -> int:
             "location":          f"{lon},{lat}",
             "product":           "",
         })
+        pipe.persist(key)   # remove any TTL — keep keys alive indefinitely
     pipe.execute()
     return len(shops)
 
@@ -6925,22 +6939,58 @@ def fetch_catalogue_sellers() -> list[dict]:
     return list(seen.values())
 
 
+_NAME_TO_CATEGORY_KEYWORDS: list[tuple[list[str], str]] = [
+    (["food", "grocery", "kirana", "provision", "bakery", "restaurant",
+      "cafe", "kitchen", "sweets", "fruits", "vegetable", "supermart",
+      "supermarket", "mini mart", "general store", "departmental"],   "Food & Grocery"),
+    (["electronic", "mobile", "phone", "computer", "laptop", "tech",
+      "digital", "gadget", "telecom"],                                "Electronics"),
+    (["health", "wellness", "medical", "medicine", "pharmacy", "chemist",
+      "drug", "clinic", "hospital", "ayurved", "herbal", "diagnostic"],
+                                                                      "Health & Wellness"),
+    (["cloth", "fashion", "garment", "textile", "saree", "wear", "dress",
+      "boutique", "tailor", "silk", "kurta", "apparel"],              "Clothing"),
+    (["book", "stationer", "library", "paper", "school supply",
+      "education", "study"],                                          "Books"),
+    (["sport", "fitness", "gym", "cricket", "football", "badminton",
+      "yoga", "cycle"],                                               "Sports"),
+    (["hardware", "tools", "paint", "plumb", "electricals", "sanitary",
+      "iron", "steel", "building material"],                          "Hardware"),
+    (["auto", "automotive", "motor", "vehicle", "car", "bike",
+      "tyre", "spare"],                                               "Automotive"),
+    (["beauty", "salon", "spa", "cosmetic", "hair", "nail",
+      "grooming", "herbal beauty"],                                   "Beauty & Personal Care"),
+    (["toy", "baby", "kids", "child", "infant", "gift"],             "Toys & Baby"),
+    (["home", "furniture", "decor", "interior", "curtain",
+      "mattress", "bedding", "kitchen appliance"],                    "Home & Kitchen"),
+]
+
+
+def _infer_category_from_name(name: str) -> str:
+    """Infer seller category from shop name keywords; falls back to Food & Grocery."""
+    nl = name.lower()
+    for keywords, cat in _NAME_TO_CATEGORY_KEYWORDS:
+        if any(kw in nl for kw in keywords):
+            return cat
+    return "Food & Grocery"
+
+
 def build_seller_for_sync(doc: dict, index: int) -> dict:
     """Turn a catalogue MongoDB doc into a seller dict with locality-matched GPS."""
     rng = random.Random(index + 42000)
     prefix    = rng.choice(SHOP_PREFIXES)
     shop_type = rng.choice(SHOP_TYPES)
     locality  = rng.choice(BANGALORE_LOCALITIES)
-    category  = rng.choice(CATEGORIES)
     tier      = random.choices(SUBSCRIPTION_TIERS, weights=TIER_WEIGHTS, k=1)[0]
 
-    # GPS matches the address locality — so searching "Nagawara" only shows Nagawara shops
     lat, lon  = locality_gps(locality, rng)
 
-    # Use catalogue name if it exists and looks reasonable
     name = doc.get("name", "") or f"{prefix} {shop_type}"
     if len(name) < 3:
         name = f"{prefix} {shop_type}"
+
+    # Infer category from name so Health & Wellness shops don't show up as Clothing
+    category = _infer_category_from_name(name)
 
     return {
         "seller_id":         doc["seller_id"],
