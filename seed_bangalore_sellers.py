@@ -6413,7 +6413,7 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
     console.print(Panel.fit(
         "[bold cyan]Padosme — Seller Search[/bold cyan]\n"
         "[dim]Type a seller name/keyword to search, or use commands:\n"
-        "  [bold]:product <name>[/bold]       e.g. :product mango  (search items in shops)\n"
+        "  [bold]product <name>[/bold]        e.g. product condom  (search items across shops)\n"
         "  [bold]:map[/bold]                  pick an area from a numbered zone map\n"
         "  [bold]:area <name>[/bold]          e.g. :area Koramangala\n"
         "  [bold]:location <lat> <lon>[/bold]  e.g. :location 12.9352 77.6245\n"
@@ -6613,8 +6613,8 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
                          available_only=False, tier="",
                          user_lat=new_lat, user_lon=new_lon)
             _run()
-        elif raw.startswith(":product "):
-            product_query = raw[len(":product "):].strip()
+        elif raw.startswith(":product ") or raw.lower().startswith("product "):
+            product_query = raw.split(" ", 1)[1].strip() if " " in raw else ""
             if product_query:
                 # Search at current radius first
                 results = search_products(
@@ -6726,8 +6726,21 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
         elif raw.startswith(":"):
             console.print(f"[red]Unknown command: {raw}[/red]")
         else:
-            state["keyword"] = raw
-            _run()
+            # Check if it looks like a product search (no sellers named this)
+            # Try product search first, fall back to seller name search
+            pq = raw.strip()
+            product_results = search_products(
+                r, pq,
+                state["user_lat"], state["user_lon"],
+                state["radius_km"], state["limit"],
+            )
+            if product_results:
+                render_product_results(product_results, pq,
+                                       state["user_lat"], state["user_lon"],
+                                       state["radius_km"])
+            else:
+                state["keyword"] = raw
+                _run()
 
 
 def _restore_redis_from_mongo(r: redis.Redis) -> int:
@@ -6964,13 +6977,17 @@ def seed_items_for_catalog(catalog: dict) -> tuple[int, str]:
 
     rng = random.Random(seller_id + catalog_id)
 
-    # Pick more items for food shops (wider variety), fewer for others
+    # Pick items per shop — enough variety that all products surface across sellers
     if category == "Food & Grocery":
-        n_items = rng.randint(10, min(20, len(products)))
+        n_items = rng.randint(30, min(60, len(products)))
     elif category == "Electronics":
-        n_items = rng.randint(4, min(8, len(products)))
+        n_items = rng.randint(15, min(30, len(products)))
+    elif category == "Health & Wellness":
+        n_items = rng.randint(20, min(40, len(products)))
+    elif category == "Clothing":
+        n_items = rng.randint(20, min(40, len(products)))
     else:
-        n_items = rng.randint(3, min(6, len(products)))
+        n_items = rng.randint(10, min(20, len(products)))
     selected = rng.sample(products, n_items)
 
     now = datetime.now(timezone.utc).isoformat()
