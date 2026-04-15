@@ -6808,10 +6808,23 @@ def _restore_redis_from_mongo(r: redis.Redis) -> int:
     return len(shops)
 
 
+def _persist_all_seller_keys(r: redis.Redis) -> int:
+    """Remove TTL from all seller:* keys so they never expire."""
+    keys = r.keys("seller:*")
+    if not keys:
+        return 0
+    pipe = r.pipeline(transaction=False)
+    for k in keys:
+        pipe.persist(k)
+    pipe.execute()
+    return len(keys)
+
+
 def _ensure_ft_index(r: redis.Redis) -> None:
     """
     Ensure idx:sellers FT.SEARCH index exists with data.
     If missing or empty, restores from MongoDB and recreates the index.
+    Always removes TTLs so the indexing service cannot expire our keys.
     """
     index_ok   = False
     seller_cnt = 0
@@ -6834,6 +6847,9 @@ def _ensure_ft_index(r: redis.Redis) -> None:
             except Exception:
                 pass
         index_ok = False
+
+    # Always strip TTLs — indexing service may have re-set them after last restore
+    _persist_all_seller_keys(r)
 
     if not index_ok:
         console.print("[dim]  Creating FT.SEARCH index…[/dim]")
