@@ -6746,19 +6746,43 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
         elif raw.startswith(":"):
             console.print(f"[red]Unknown command: {raw}[/red]")
         else:
-            # Check if it looks like a product search (no sellers named this)
-            # Try product search first, fall back to seller name search
             pq = raw.strip()
-            product_results = search_products(
-                r, pq,
-                state["user_lat"], state["user_lon"],
-                state["radius_km"], state["limit"],
+            # Determine if this looks like a product query
+            from_category_products = any(
+                pq.lower() in p.lower()
+                for prods in CATEGORY_PRODUCTS.values()
+                for p in prods
             )
-            if product_results:
-                render_product_results(product_results, pq,
-                                       state["user_lat"], state["user_lon"],
-                                       state["radius_km"])
+            if from_category_products:
+                # It's a product — try at current radius, then expand up to 15 km
+                product_results = search_products(
+                    r, pq, state["user_lat"], state["user_lon"],
+                    state["radius_km"], state["limit"],
+                )
+                if product_results:
+                    render_product_results(product_results, pq,
+                                           state["user_lat"], state["user_lon"],
+                                           state["radius_km"])
+                else:
+                    found = False
+                    for r_try in _radius_expand_steps(state["radius_km"], max_km=25.0):
+                        product_results = search_products(
+                            r, pq, state["user_lat"], state["user_lon"],
+                            r_try, state["limit"],
+                        )
+                        if product_results:
+                            render_product_results(product_results, pq,
+                                                   state["user_lat"], state["user_lon"],
+                                                   r_try, expanded=True)
+                            found = True
+                            break
+                    if not found:
+                        console.print(
+                            f"[yellow]No shops found selling '[bold]{pq}[/bold]' "
+                            f"within 25 km of your location.[/yellow]"
+                        )
             else:
+                # Not a known product — treat as seller name search
                 state["keyword"] = raw
                 _run()
 
