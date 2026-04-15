@@ -214,6 +214,64 @@ BANGALORE_AREAS = {
     "bytarayanapura":             (13.0490, 77.5923),
     "kalkere":                    (13.0387, 77.6623),
     "singapura":                  (13.0618, 77.5948),
+
+    # RT Nagar / Hebbal / Sahakar Nagar cluster
+    "r t nagar":                  (13.0218, 77.5972),  # alternate spelling of rt nagar
+    "r.t nagar":                  (13.0218, 77.5972),  # alternate spelling of rt nagar
+    "r.t. nagar":                 (13.0218, 77.5972),  # alternate spelling of rt nagar
+    "rahamath nagar":             (13.0285, 77.5940),
+    "kamanahalli":                (13.0142, 77.6478),  # alternate spelling of kammanahalli
+    "rajanukunte":                 (13.1265, 77.5965),
+    "rajanukunte area":            (13.1265, 77.5965),
+    "kodigehalli":                (13.0512, 77.5907),
+    "dollars colony":             (13.0380, 77.6040),
+    "kaval byrasandra":           (13.0190, 77.6080),
+    "aramane nagar":              (12.9986, 77.5498),
+    "benson town":                (12.9942, 77.6143),
+    "pulakeshinagar":             (12.9920, 77.6200),
+    "jalahalli cross":            (13.0480, 77.5180),
+    "saneguruvanahalli":          (13.0350, 77.5050),
+    "hessarghatta":               (13.1020, 77.4838),
+    "hessarghatta road":          (13.0700, 77.5200),
+
+    # Palya localities (north/east Bangalore)
+    "palya":                      (13.0155, 77.6495),  # Kammanahalli Palya area
+    "nagawara palya":             (13.0450, 77.6250),
+    "banaswadi palya":            (13.0140, 77.6510),
+    "tc palya":                   (13.0175, 77.6510),
+    "laggere":                    (13.0350, 77.5150),
+
+    # RT Nagar sub-areas and adjacent localities
+    "sanjay nagar":               (13.0298, 77.5742),
+    "ganganagar":                 (13.0196, 77.5782),
+    "rajgopal nagar":             (13.0150, 77.5700),
+    "sadashivanagar":             (13.0071, 77.5807),
+    "kamanahalli main road":      (13.0160, 77.6490),
+    "nagawara main road":         (13.0460, 77.6220),
+    "kogilu cross":               (13.0700, 77.6050),
+    "new airport road":           (13.0580, 77.6100),
+    "ballari road":               (13.0490, 77.5980),
+    "hebbal kempapura":           (13.0430, 77.5870),
+    "hebbal lake":                (13.0430, 77.5920),
+    "maruthi nagar":              (13.0220, 77.5830),
+    "annapurneshwari nagar":      (13.0270, 77.5680),
+    "defence layout":             (13.0310, 77.5920),
+    "cholanayakanahalli":         (13.0540, 77.5830),
+    "yelahanka satellite town":   (13.0980, 77.5870),
+    "attur layout":               (13.1080, 77.5770),
+    "sahakar nagar extension":    (13.0420, 77.5860),
+    "abbigere":                   (13.0650, 77.5070),
+    "nagarabhavi 2nd stage":      (12.9550, 77.4980),
+    "devasandra":                 (13.0110, 77.7050),
+    "kammanahalli junction":      (13.0170, 77.6500),
+    "sarakki":                    (12.9120, 77.5690),
+
+    # Rajanukunte sub-areas and corridor
+    "rajanukunte main road":       (13.1265, 77.5965),
+    "rajanukunte bus stand":       (13.1270, 77.5958),
+    "rajanukunte market":          (13.1268, 77.5963),
+    "nh 44 rajanukunte":           (13.1255, 77.5972),
+    "doddaballapur road rajanukunte": (13.1310, 77.5822),
 }
 EARTH_RADIUS_KM = 6371.0
 
@@ -269,6 +327,12 @@ BANGALORE_LOCALITIES = [
     "Hoodi", "KR Puram", "Tin Factory", "Banaswadi", "Kalyan Nagar",
     "Hennur", "Jakkur", "Thanisandra", "Kogilu", "Sahakar Nagar",
     "Devanahalli", "Doddaballapur Road", "Nagavara", "Kalkere", "Horamavu",
+    # North Bangalore cluster
+    "Rahamath Nagar", "Sanjay Nagar", "Ganganagar", "Sadashivanagar",
+    "Rajanukunte", "Hebbal Kempapura", "Nagawara Palya", "TC Palya",
+    "Kogilu Cross", "New Airport Road", "Maruthi Nagar", "Defence Layout",
+    "Ballari Road", "Kammanahalli Main Road", "Banaswadi Palya",
+    "Annapurneshwari Nagar", "Cholanayakanahalli", "Yelahanka Satellite Town",
 ]
 
 CATEGORIES = [
@@ -279,6 +343,121 @@ CATEGORIES = [
 
 SUBSCRIPTION_TIERS = ["free", "bronze", "silver", "gold", "platinum"]
 TIER_WEIGHTS       = [40, 25, 20, 10, 5]   # probability weights
+
+# ── Real named shops — verified via Magicpin / Zomato / Justdial ─────────────
+# Format: (name, address, latitude, longitude, category, tier, rating, reviews, phone)
+REAL_SELLERS = [
+    # ── RT Nagar / 80 Feet Road / Ganga Nagar ────────────────────────────────
+    ("Empire Restaurant",           "161, 80 Feet Road, Ganganagar, Matadahalli, RT Nagar, Bangalore - 560032",    13.016794, 77.591662, "Food & Grocery",    "gold",   4.0, 2413, "+918040414141"),
+    ("Kudla",                       "166, C/O Coral Tree, 80 Feet Road, MLA Layout, RT Nagar, Bangalore - 560032", 13.017801, 77.591723, "Food & Grocery",    "silver", 4.9,   42, "+918043346600"),
+    ("J B Bakery",                  "8, Near Post Office, 80 Feet Road, Ganga Nagar, RT Nagar, Bangalore",         13.020820, 77.592447, "Food & Grocery",    "bronze", 4.5,  810, "+918023439839"),
+    ("Nandhana Palace",             "367, 1st Floor, Judges Colony, 80 Feet Road, RT Nagar, Bangalore - 560032",   13.024033, 77.592725, "Food & Grocery",    "silver", 4.1,   70, "+919845207677"),
+    ("Al-Bek",                      "1, 80 Feet Road, Near Florence School, RT Nagar, Bangalore - 560032",         13.022515, 77.592625, "Food & Grocery",    "silver", 3.9,  400, "+919900319831"),
+    ("Rahhams",                     "4, 80 Feet Road, Near Shanthi Sagar, RT Nagar, Bangalore - 560032",           13.023621, 77.592699, "Food & Grocery",    "silver", 4.1,  930, "+918023548700"),
+    ("Huliyappa's Donne Biryani",   "33, 10th Cross, Ganga Nagar, RT Nagar, Bangalore - 560032",                   13.026943, 77.590814, "Food & Grocery",    "bronze", 4.0, 1809, "+919019932654"),
+    ("The Momo Shop",               "SM Arcade, 98-98-4, 1st Main, KHM Block, Ganga Nagar, RT Nagar, Bangalore",  13.023040, 77.592141, "Food & Grocery",    "bronze", 4.3,   50, "+919845141954"),
+    ("Dawat E Rasoi",               "5/3, ALS Complex, 1st Main, 2nd Cross, Opp IOC Pump, RT Nagar, Bangalore",   13.018548, 77.592179, "Food & Grocery",    "bronze", 4.3,  100, ""),
+    ("Food Hub",                    "Kaveri Nagar, Manorayana Palya, RT Nagar, Bangalore",                         13.024187, 77.596961, "Food & Grocery",    "bronze", 4.2,  458, "+919900197851"),
+    ("Maruthi Complex",             "19, Ravindra Tagore Nagar Main Rd, P&T Colony, Ganga Nagar, Bangalore",       13.021484, 77.592322, "Food & Grocery",    "free",   4.9,    2, "+919217002598"),
+    ("Shree Raj Lassi Bar",         "RT Nagar Main Road, RT Nagar, Bangalore - 560032",                            13.021800, 77.596800, "Food & Grocery",    "silver", 4.6,  312, ""),
+    ("Savera Restaurant",           "RT Nagar 1st Cross, RT Nagar, Bangalore - 560032",                            13.022500, 77.597500, "Food & Grocery",    "silver", 4.3,  198, ""),
+    ("New Saraswati Medicals",      "34, RT Nagar Main Road, RT Nagar, Bangalore - 560032",                        13.022000, 77.597400, "Health & Wellness", "bronze", 4.3,  156, ""),
+    ("Pooja Stationery & Books",    "19, RT Nagar 2nd Cross, RT Nagar, Bangalore - 560032",                        13.021600, 77.596700, "Stationery",        "free",   4.1,   72, ""),
+    ("Kumar Hardware & Plumbing",   "RT Nagar Industrial Area, RT Nagar, Bangalore - 560032",                      13.020000, 77.595000, "Hardware",          "free",   3.9,   55, ""),
+    ("Simpli Namdhari's",           "63, P&T Colony, HMT Layout, 10th Main, Opp Chaitanya Hospital, RT Nagar, Bangalore", 13.026000, 77.591500, "Food & Grocery", "silver", 4.3, 320, ""),
+
+    # ── Rahamath Nagar — 1st Main Road, RT Nagar Post, Pin 560032 ─────────────
+    ("Sichi Hotel",                 "No.9, 1st Main Road, Rahamath Nagar, RT Nagar, Bangalore - 560032",           13.017642, 77.591957, "Food & Grocery",    "bronze", 4.9,   20, "+918892062687"),
+    ("New Kadai Family Restaurant", "7, 1st Main Road, Rahamath Nagar, RT Nagar, Bangalore - 560032",              13.018219, 77.591995, "Food & Grocery",    "bronze", 4.1,   81, "+919900486367"),
+    ("Pik & Wrap",                  "8/14, 1st Main, Near IBP Petrol Bunk, Rahamath Nagar, RT Nagar, Bangalore",   13.019700, 77.592000, "Food & Grocery",    "bronze", 4.3,  150, ""),
+    ("Al Noor Bakery",              "Rahamath Nagar, RT Nagar, Bangalore - 560032",                                 13.017900, 77.591800, "Food & Grocery",    "bronze", 4.3,  215, ""),
+    ("Bismillah Provisions",        "Rahamath Nagar Cross, RT Nagar, Bangalore - 560032",                          13.018500, 77.592100, "Food & Grocery",    "free",   4.0,   78, ""),
+    ("Rahmath Chicken Centre",      "Rahamath Nagar, RT Nagar, Bangalore - 560032",                                 13.017500, 77.591700, "Food & Grocery",    "bronze", 4.4,  167, ""),
+    ("Star Medicals Rahamath Nagar","1st Main Road, Rahamath Nagar, RT Nagar, Bangalore - 560032",                 13.018000, 77.591850, "Health & Wellness", "free",   3.9,   44, ""),
+
+    # ── Kammanahalli — Pin 560084 ─────────────────────────────────────────────
+    # Verified: Al Amanah is at 20, 5th Avenue, 5th Main Road, Kammanahalli (NOT Rahamath Nagar)
+    ("Al Amanah Cafe",              "20, 5th Avenue, 5th Main Road, Kammanahalli, Bangalore - 560084",   13.015544, 77.639521, "Food & Grocery",    "silver", 4.3, 1910, "+919900029506"),
+    ("Kamadhenu Milk & Dairy",      "5, Kammanahalli Main Road, Kammanahalli, Bangalore - 560084",       13.014500, 77.648200, "Food & Grocery",    "bronze", 4.2,  188, ""),
+    ("Hotel Anugraha",              "33, Kammanahalli Main Road, Kammanahalli, Bangalore - 560084",      13.014800, 77.647800, "Food & Grocery",    "silver", 4.4,  290, ""),
+    ("Bhavani Bakery",              "18, Kammanahalli Circle, Kammanahalli, Bangalore - 560084",         13.014000, 77.647500, "Food & Grocery",    "bronze", 4.3,  225, ""),
+    ("Madurai Idli Shop",           "9, Kammanahalli 1st Cross, Kammanahalli, Bangalore - 560084",       13.014200, 77.648000, "Food & Grocery",    "free",   4.1,  130, ""),
+    ("Sri Lakshmi Departmental",    "44, Kammanahalli Main Road, Kammanahalli, Bangalore - 560084",      13.015000, 77.648500, "Food & Grocery",    "free",   3.8,   62, ""),
+    ("Nagaraj Electronics",         "27, Kammanahalli Main Road, Kammanahalli, Bangalore - 560084",      13.015500, 77.649000, "Electronics",       "bronze", 4.0,   85, ""),
+    ("Arogya Medicals",             "11, Kammanahalli 2nd Cross, Kammanahalli, Bangalore - 560084",      13.013800, 77.647200, "Health & Wellness", "bronze", 4.2,  114, ""),
+    ("The Book Corner",             "6, Kammanahalli, Bangalore - 560084",                               13.014300, 77.647700, "Books",             "free",   4.3,   97, ""),
+
+    # ── Hebbal — Pin 560024 ───────────────────────────────────────────────────
+    ("Hebbal Fresh Vegetables",     "Near Hebbal Flyover, Hebbal, Bangalore - 560024",            13.035800, 77.596800, "Food & Grocery",    "free",   4.0, 112, ""),
+    ("Hotel Dakshin Hebbal",        "14, Hebbal Main Road, Hebbal, Bangalore - 560024",           13.035000, 77.596500, "Food & Grocery",    "silver", 4.5, 380, ""),
+    ("Srinivasa Kirana & General",  "8, Hebbal 1st Cross, Hebbal, Bangalore - 560024",            13.035500, 77.597200, "Food & Grocery",    "free",   3.9,  58, ""),
+    ("Hebbal Auto Spare Parts",     "Opp. Hebbal Lake, Hebbal, Bangalore - 560024",               13.036200, 77.596000, "Automotive",        "bronze", 4.1,  93, ""),
+    ("Om Sai Medical Store",        "22, Hebbal Main Road, Hebbal, Bangalore - 560024",           13.034800, 77.597000, "Health & Wellness", "bronze", 4.3, 148, ""),
+    ("Balaji Mobiles Hebbal",       "5, Hebbal Main Road, Hebbal, Bangalore - 560024",            13.035600, 77.597500, "Electronics",       "bronze", 3.9,  74, ""),
+
+    # ── Sahakar Nagar — Pin 560092 ────────────────────────────────────────────
+    ("Anand Sweets & Snacks",       "3, Sahakar Nagar Main Road, Sahakar Nagar, Bangalore - 560092", 13.039000, 77.587800, "Food & Grocery",    "silver", 4.6, 445, ""),
+    ("Sahakar Nagar Bakery",        "21, Sahakar Nagar, Bangalore - 560092",                      13.038500, 77.588200, "Food & Grocery",    "bronze", 4.2, 192, ""),
+    ("Sri Ram General Store",       "9, Sahakar Nagar 3rd Block, Bangalore - 560092",             13.039300, 77.587500, "Food & Grocery",    "free",   4.0,  76, ""),
+    ("Wellness Pharmacy",           "16, Sahakar Nagar Main Road, Bangalore - 560092",            13.038800, 77.588000, "Health & Wellness", "bronze", 4.4, 203, ""),
+    ("Kids Zone Toys",              "7, Sahakar Nagar, Bangalore - 560092",                       13.038200, 77.588500, "Toys & Baby",        "free",   4.1,  88, ""),
+
+    # ── Nagawara — Pin 560045 ─────────────────────────────────────────────────
+    ("Green Valley Restaurant",     "12, Nagawara Main Road, Nagawara, Bangalore - 560045",       13.046800, 77.622000, "Food & Grocery",    "silver", 4.3, 265, ""),
+    ("Nagawara Fruit & Veg Market", "Near Nagawara Lake, Nagawara, Bangalore - 560045",           13.047200, 77.621500, "Food & Grocery",    "free",   4.0, 110, ""),
+    ("Galaxy Electronics",          "35, Nagawara Main Road, Nagawara, Bangalore - 560045",       13.046500, 77.622500, "Electronics",       "bronze", 4.1, 135, ""),
+    ("Zam Zam Restaurant",          "8, Nagawara Main Road, Nagawara, Bangalore - 560045",        13.047000, 77.621800, "Food & Grocery",    "bronze", 4.5, 320, ""),
+
+    # ── Sanjay Nagar — Pin 560094 ─────────────────────────────────────────────
+    ("Sanjay Nagar Supermarket",    "Main Road, Sanjay Nagar, Bangalore - 560094",                13.030000, 77.574000, "Food & Grocery",    "bronze", 4.1, 155, ""),
+    ("Fresh & Go Provisions",       "4th Block, Sanjay Nagar, Bangalore - 560094",                13.029500, 77.574500, "Food & Grocery",    "free",   3.9,  67, ""),
+    ("Sharma Medicals",             "2nd Block, Sanjay Nagar, Bangalore - 560094",                13.030200, 77.573800, "Health & Wellness", "free",   4.0,  82, ""),
+
+    # ── Ganganagar — Pin 560032 ───────────────────────────────────────────────
+    ("Ganganagar Darshini",         "1st Main Road, Ganganagar, RT Nagar, Bangalore - 560032",    13.019800, 77.578400, "Food & Grocery",    "free",   4.2, 142, ""),
+    ("Sri Durga Provisions",        "3rd Cross, Ganganagar, RT Nagar, Bangalore - 560032",        13.019400, 77.578000, "Food & Grocery",    "free",   3.8,  55, ""),
+    ("Ganganagar Sports Corner",    "Main Road, Ganganagar, RT Nagar, Bangalore - 560032",        13.020000, 77.578800, "Sports",            "free",   4.0,  63, ""),
+
+    # ── Rajanukunte — Pin 562157, NH 44 corridor ───────────────────────────────
+    ("Rajanukunte Milk Dairy",             "Main Road, Rajanukunte, Bangalore - 562157",            13.126800, 77.596200, "Food & Grocery",    "free",   4.1,  98, ""),
+    ("Highway Dhaba Rajanukunte",          "NH 44, Rajanukunte, Bangalore - 562157",                13.126000, 77.596800, "Food & Grocery",    "bronze", 4.3, 172, ""),
+    ("Rajanukunte General Stores",         "Bus Stand Road, Rajanukunte, Bangalore - 562157",       13.127000, 77.595800, "Food & Grocery",    "free",   3.8,  45, ""),
+    ("Sri Venkateswara Kirana",           "1st Cross, Rajanukunte, Bangalore - 562157",            13.127200, 77.596000, "Food & Grocery",    "free",   4.0,  62, ""),
+    ("New Srinivasa Provisions",          "NH 44 Service Road, Rajanukunte, Bangalore - 562157",   13.125800, 77.597000, "Food & Grocery",    "free",   3.9,  55, ""),
+    ("Rajanukunte Fruit & Veg Shop",       "Main Road, Rajanukunte, Bangalore - 562157",            13.126500, 77.595500, "Food & Grocery",    "free",   4.2, 118, ""),
+    ("Rajanukunte Chicken & Mutton",       "Market Road, Rajanukunte, Bangalore - 562157",          13.127400, 77.596300, "Food & Grocery",    "free",   4.1,  88, ""),
+    ("Hotel Surya Rajanukunte",            "NH 44, Rajanukunte, Bangalore - 562157",                13.125600, 77.597200, "Food & Grocery",    "bronze", 4.2, 210, ""),
+    ("Shree Sagar Darshini",               "Bus Stand, Rajanukunte, Bangalore",               13.1268, 77.5958, "Food & Grocery",    "free",     4.3, 195),
+    ("Bismillah Hotel",                    "NH 44, Rajanukunte, Bangalore",                   13.1262, 77.5966, "Food & Grocery",    "free",     4.4, 240),
+    ("Rajanukunte Bakery & Sweets",         "1st Main, Rajanukunte, Bangalore",                13.1271, 77.5961, "Food & Grocery",    "free",     4.0,  77),
+    ("Amruth Cool Bar",                    "Main Road, Rajanukunte, Bangalore",               13.1266, 77.5968, "Food & Grocery",    "free",     4.1,  92),
+    ("Rajanukunte Medical Hall",            "Near Bus Stand, Rajanukunte, Bangalore",          13.1269, 77.5957, "Health & Wellness", "free",     4.2, 135),
+    ("Life Care Pharmacy",                 "NH 44, Rajanukunte, Bangalore",                   13.1257, 77.5971, "Health & Wellness", "free",     4.0,  80),
+    ("Dhanvantari Medical Store",          "Main Road, Rajanukunte, Bangalore",               13.1264, 77.5963, "Health & Wellness", "bronze",   4.3, 148),
+    ("Rajanukunte Hardware & Paints",       "Main Road, Rajanukunte, Bangalore",               13.1275, 77.5964, "Hardware",          "free",     3.9,  52),
+    ("Sri Sai Hardware Stores",            "1st Cross, Rajanukunte, Bangalore",               13.1270, 77.5956, "Hardware",          "free",     3.8,  38),
+    ("Balaji Auto Garage",                 "NH 44, Rajanukunte, Bangalore",                   13.1252, 77.5975, "Automotive",        "free",     4.1,  73),
+    ("National Tyres & Services",          "NH 44 Service Road, Rajanukunte, Bangalore",      13.1254, 77.5973, "Automotive",        "bronze",   4.2, 105),
+    ("Rajanukunte Petrol Bunk Services",    "NH 44, Rajanukunte, Bangalore",                   13.1248, 77.5978, "Automotive",        "free",     3.9,  44),
+    ("Sri Ganapathi Mobile Shop",          "Main Road, Rajanukunte, Bangalore",               13.1267, 77.5960, "Electronics",       "free",     3.9,  49),
+    ("Rajanukunte Mobile Accessories",      "Bus Stand Road, Rajanukunte, Bangalore",          13.1271, 77.5955, "Electronics",       "free",     3.8,  35),
+    ("Rajanukunte Stationery & Books",      "1st Cross, Rajanukunte, Bangalore",               13.1264, 77.5966, "Stationery",        "free",     4.0,  58),
+    ("Little Stars Toys & Baby",           "Main Road, Rajanukunte, Bangalore",               13.1273, 77.5958, "Toys & Baby",       "free",     4.1,  67),
+    # Nearby — Yelahanka New Town (2 km south)
+    ("Yelahanka New Town Supermart",       "Main Road, Yelahanka New Town, Bangalore",       13.1082, 77.5944, "Food & Grocery",    "bronze",   4.3, 215),
+    ("Hotel Udupi Garden",                 "1st Main, Yelahanka New Town, Bangalore",        13.1076, 77.5950, "Food & Grocery",    "silver",   4.4, 310),
+    ("Sri Devi Medical Stores",            "Main Road, Yelahanka New Town, Bangalore",       13.1080, 77.5940, "Health & Wellness", "bronze",   4.1, 122),
+    # Nearby — Singapura (1.5 km south-east)
+    ("Singapura General Store",            "Main Road, Singapura, Bangalore",                13.0620, 77.5950, "Food & Grocery",    "free",     3.9,  48),
+    ("Sri Rama Kirana",                    "1st Cross, Singapura, Bangalore",                13.0615, 77.5952, "Food & Grocery",    "free",     3.8,  40),
+    # Nearby — Attur Layout (2 km south)
+    ("Attur Layout Provisions",            "Main Road, Attur Layout, Yelahanka, Bangalore",  13.1078, 77.5772, "Food & Grocery",    "free",     4.0,  65),
+    ("Hotel Green Park - Attur",           "Attur Layout, Yelahanka, Bangalore",             13.1075, 77.5775, "Food & Grocery",    "bronze",   4.2, 158),
+    # Nearby — Doddaballapur Road (corridor)
+    ("Doddaballapur Road Dhaba",           "Doddaballapur Road, Near Rajanukunte, Bangalore", 13.1310, 77.5822, "Food & Grocery",    "free",     4.1,  95),
+    ("Road Side Auto Spares",              "Doddaballapur Road, Bangalore",                  13.1305, 77.5818, "Automotive",        "free",     3.9,  42),
+    ("Farmers Market - Doddaballapur Rd",  "Doddaballapur Road, Bangalore",                  13.1315, 77.5825, "Food & Grocery",    "free",     4.3, 132),
+]
 
 # Product catalogue per category — used when creating catalogue items
 CATEGORY_PRODUCTS = {
@@ -874,6 +1053,30 @@ def generate_seller(index: int) -> dict:
     }
 
 
+def generate_real_sellers() -> list[dict]:
+    """Return seller dicts for every entry in REAL_SELLERS with tiny GPS jitter."""
+    sellers = []
+    rng = random.Random(777)
+    for row in REAL_SELLERS:
+        name, address, lat, lon, category, tier, rating, reviews = row[:8]
+        phone = row[8] if len(row) > 8 else ""
+        # ±50 m jitter so the same shop run twice doesn't land on the exact same pixel
+        jlat, jlon = random_point_within_radius(lat, lon, 0.05)
+        sellers.append({
+            "seller_id":         str(uuid.uuid5(uuid.NAMESPACE_DNS, name + address)),
+            "name":              name,
+            "address":           address,
+            "latitude":          round(jlat, 6),
+            "longitude":         round(jlon, 6),
+            "category":          category,
+            "subscription_tier": tier,
+            "rating":            rating,
+            "review_count":      reviews,
+            "phone":             phone,
+        })
+    return sellers
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # RabbitMQ helpers  (connection per thread — pika is not thread-safe)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1466,6 +1669,7 @@ def render_search_results(total: int, docs: list[dict], desc: str, limit: int) -
     tbl.add_column("Tier",      justify="center", width=10)
     tbl.add_column("Status",    justify="center", width=8)
     tbl.add_column("Address",   style="dim",   min_width=28)
+    tbl.add_column("Phone",     style="green", min_width=14)
 
     for i, doc in enumerate(docs, 1):
         rating  = float(doc.get("rating", 0))
@@ -1482,6 +1686,7 @@ def render_search_results(total: int, docs: list[dict], desc: str, limit: int) -
             f"[{TIER_COLORS.get(tier, 'dim')}]{tier}[/{TIER_COLORS.get(tier, 'dim')}]",
             "[green]open[/green]" if avail == "true" else "[dim]closed[/dim]",
             doc.get("address", "—"),
+            doc.get("phone", "—") or "—",
         )
     console.print(tbl)
     console.print()
@@ -1524,7 +1729,22 @@ def _ask_location(default_lat: float, default_lon: float) -> tuple[float, float,
     """Prompt user for area name or GPS coordinates at startup."""
     console.print()
     # Show available areas
-    area_list = "  ".join(name.title() for name in list(BANGALORE_AREAS.keys())[:20]) + "  …"
+    # Show key areas grouped by zone so user can see RT Nagar cluster too
+    _key_areas = [
+        # Central
+        "MG Road", "Brigade Road", "Shivajinagar", "Richmond Town",
+        # North cluster
+        "RT Nagar", "Rahamath Nagar", "Hebbal", "Sahakar Nagar",
+        "Kammanahalli", "Nagawara", "Sanjay Nagar", "Ganganagar",
+        "Rajanukunte", "Yelahanka", "Thanisandra", "Hennur",
+        # South
+        "Koramangala", "Jayanagar", "JP Nagar", "BTM Layout",
+        # East
+        "Indiranagar", "Whitefield", "Marathahalli", "HSR Layout",
+        # West
+        "Rajajinagar", "Malleswaram", "Vijayanagar",
+    ]
+    area_list = "  ".join(a for a in _key_areas) + "  …"
     console.print(Panel(
         "[bold]Where are you?[/bold]\n"
         "[dim]Type an area name or GPS coordinates (lat lon).\n"
@@ -2001,6 +2221,7 @@ def save_seller_geo(sellers: list[dict]) -> int:
                     "subscription_tier": s["subscription_tier"],
                     "rating":            s["rating"],
                     "review_count":      s["review_count"],
+                    "phone":             s.get("phone", ""),
                 }},
                 upsert=True,
             )
@@ -2276,8 +2497,11 @@ Seed new sellers from scratch:
         raise SystemExit(1)
     console.print()
 
-    # Generate seller data upfront
-    sellers = [generate_seller(i) for i in range(args.count)]
+    # Generate seller data upfront — real named shops first, then random fills
+    real_sellers = generate_real_sellers()
+    sellers = real_sellers + [generate_seller(i) for i in range(args.count)]
+
+    console.print(f"[dim]  {len(real_sellers)} real named shops + {args.count} generated sellers = {len(sellers)} total[/dim]")
 
     # Verify all generated points are within radius (sanity check)
     max_dist = max(haversine_km(BASE_LAT, BASE_LON, s["latitude"], s["longitude"]) for s in sellers)
@@ -2307,8 +2531,8 @@ Seed new sellers from scratch:
         transient=False,
     ) as progress:
         task = progress.add_task(
-            f"Seeding {args.count} sellers…",
-            total=args.count,
+            f"Seeding {len(sellers)} sellers ({len(real_sellers)} real + {args.count} generated)…",
+            total=len(sellers),
         )
 
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -2342,10 +2566,13 @@ Seed new sellers from scratch:
     tbl.add_column("Metric",  style="bold", min_width=35)
     tbl.add_column("Value",   justify="right", min_width=12)
 
-    tbl.add_row("Sellers targeted",             str(args.count))
+    total_targeted = len(sellers)
+    tbl.add_row("Sellers targeted",             str(total_targeted))
+    tbl.add_row("  └─ real named shops",        str(len(real_sellers)))
+    tbl.add_row("  └─ generated sellers",       str(args.count))
     tbl.add_row(
         "seller.verified events published",
-        f"[green]{events_ok}[/green]" if events_ok == args.count
+        f"[green]{events_ok}[/green]" if events_ok == total_targeted
         else f"[yellow]{events_ok}[/yellow]",
     )
     if events_fail:
@@ -2378,7 +2605,7 @@ Seed new sellers from scratch:
     console.print()
 
     # ── Final verdict ──────────────────────────────────────────────────────────
-    if events_ok == args.count and verify["within_radius"] >= events_ok * 0.9:
+    if events_ok == total_targeted and verify["within_radius"] >= events_ok * 0.9:
         console.print(Panel(
             f"[green bold]All {events_ok} sellers seeded and discoverable within {args.radius:.0f} km of Bangalore.[/green bold]\n"
             f"[dim]Discovery service will return these sellers via FT.SEARCH geo filter.[/dim]",
