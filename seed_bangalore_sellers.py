@@ -4322,6 +4322,14 @@ CATEGORY_PRODUCTS = {
     ],
 
     "Health & Wellness": [
+        # ── Generic search aliases ────────────────────────────────────────────
+        "Medical", "Medicine", "Medicines", "Medical Store", "Pharmacy",
+        "Pharma", "Chemist", "Drug Store", "Health", "Wellness",
+        "Tablet", "Tablets", "Capsule", "Capsules", "Syrup", "Injection",
+        "Condom", "Condoms", "Contraceptive", "Sanitary", "Pad", "Pads",
+        "Vitamin", "Vitamins", "Supplement", "Supplements",
+        "Ayurvedic", "Herbal", "First Aid", "Bandage", "Sanitizer",
+
         # ── OTC Pain / Fever / Cold ──────────────────────────────────────────
         "Paracetamol 500mg (Crocin)", "Dolo 650 Tablet", "Calpol Tablet",
         "Ibuprofen 400mg (Brufen)", "Combiflam Tablet", "Combiflam Plus",
