@@ -6432,17 +6432,16 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
     console.print()
     console.print(Panel.fit(
         "[bold cyan]Padosme — Seller Search[/bold cyan]\n"
-        "[dim]Type a seller name/keyword to search, or use commands:\n"
-        "  [bold]product <name>[/bold]        e.g. product condom  (search items across shops)\n"
-        "  [bold]:map[/bold]                  pick an area from a numbered zone map\n"
-        "  [bold]:area <name>[/bold]          e.g. :area Koramangala\n"
-        "  [bold]:location <lat> <lon>[/bold]  e.g. :location 12.9352 77.6245\n"
-        "  [bold]:category <name>[/bold]   [bold]:radius <km>[/bold]   "
-        "[bold]:sort rating|distance|popularity[/bold]\n"
-        "  [bold]:tier gold|silver|...[/bold]   "
-        "[bold]:available[/bold]   [bold]:limit <n>[/bold]   "
-        "[bold]:reset[/bold]   [bold]:quit[/bold]\n"
-        "Radius auto-expands when no results found at the current setting.[/dim]",
+        "[dim]Type anything to search — product name, shop name, or a command:\n"
+        "  [bold]medical[/bold]  [bold]condom[/bold]  [bold]mango[/bold]  [bold]iphone[/bold]  "
+        "[bold]dolo[/bold]  [bold]shirts[/bold]  … any product\n"
+        "  [bold]radius <km>[/bold]      e.g. radius 5   or   radius 25\n"
+        "  [bold]area <name>[/bold]      e.g. area Koramangala   area Indiranagar\n"
+        "  [bold]sort <mode>[/bold]      rating | distance | popularity\n"
+        "  [bold]tier <tier>[/bold]      free | bronze | silver | gold | platinum\n"
+        "  [bold]limit <n>[/bold]        e.g. limit 30\n"
+        "  [bold]:reset[/bold]  [bold]:quit[/bold]\n"
+        "Radius auto-expands (up to 25 km) when no results found nearby.[/dim]",
         border_style="cyan",
     ))
 
@@ -6713,36 +6712,48 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
         elif raw.startswith(":category"):
             state["category"] = raw[len(":category"):].strip()
             _run()
-        elif raw.startswith(":radius "):
+        elif raw.startswith(":radius ") or raw.lower().startswith("radius "):
             try:
                 state["radius_km"] = float(raw.split()[1])
+                console.print(f"[green]Radius set to {state['radius_km']:.0f} km[/green]")
                 _run()
-            except ValueError:
-                console.print("[red]Usage: :radius <km>[/red]")
-        elif raw.startswith(":sort "):
+            except (ValueError, IndexError):
+                console.print("[red]Usage: radius <km>  e.g. radius 5[/red]")
+        elif raw.startswith(":sort ") or raw.lower().startswith("sort "):
             val = raw.split()[1].lower()
             if val in ("rating", "distance", "popularity"):
                 state["sort_by"] = val
                 _run()
             else:
                 console.print("[red]Options: rating | distance | popularity[/red]")
-        elif raw.startswith(":tier"):
-            val = raw[len(":tier"):].strip().lower()
+        elif raw.startswith(":tier") or raw.lower().startswith("tier "):
+            val = raw.split(" ", 1)[1].strip().lower() if " " in raw else ""
             if val in ("", "free", "bronze", "silver", "gold", "platinum"):
                 state["tier"] = val
                 _run()
             else:
                 console.print("[red]Options: free | bronze | silver | gold | platinum[/red]")
-        elif raw == ":available":
+        elif raw in (":available", "available"):
             state["available_only"] = not state["available_only"]
             console.print(f"[dim]available filter: {state['available_only']}[/dim]")
             _run()
-        elif raw.startswith(":limit "):
+        elif raw.startswith(":limit ") or raw.lower().startswith("limit "):
             try:
                 state["limit"] = int(raw.split()[1])
                 _run()
-            except ValueError:
-                console.print("[red]Usage: :limit <n>[/red]")
+            except (ValueError, IndexError):
+                console.print("[red]Usage: limit <n>  e.g. limit 30[/red]")
+        elif raw.startswith(":area ") or raw.lower().startswith("area "):
+            query = raw.split(" ", 1)[1].strip()
+            result = _resolve_location(query)
+            if result:
+                state["user_lat"], state["user_lon"] = result
+                state["radius_km"] = 2.0
+                state["sort_by"]   = "distance"
+                console.print(f"[green]Area set to '[bold]{query.title()}[/bold]' — showing shops within 2 km[/green]")
+                _run()
+            else:
+                console.print("[red]Not recognised. Try: area Koramangala  or  area Indiranagar[/red]")
         elif raw.startswith(":"):
             console.print(f"[red]Unknown command: {raw}[/red]")
         else:
