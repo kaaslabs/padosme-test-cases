@@ -1294,6 +1294,16 @@ examples:
         help="Show seeding status across MongoDB, Redis, and PostgreSQL then exit",
     )
 
+    # ── Connection overrides (used by --status; defaults work on both servers) ─
+    parser.add_argument("--pg-host",      default="localhost",       help="PostgreSQL host (default: localhost)")
+    parser.add_argument("--pg-port",      type=int, default=5432,    help="PostgreSQL port (default: 5432)")
+    parser.add_argument("--pg-user",      default="deploy",          help="PostgreSQL user (default: deploy)")
+    parser.add_argument("--pg-password",  default="kaaslabs123",     help="PostgreSQL password")
+    parser.add_argument("--pg-dbname",    default="padosme_indexing", help="PostgreSQL database (default: padosme_indexing)")
+    parser.add_argument("--redis-host",   default="localhost",        help="Redis host (default: localhost)")
+    parser.add_argument("--redis-port",   type=int, default=6379,    help="Redis port (default: 6379)")
+    parser.add_argument("--redis-password", default=None,            help="Redis password if required")
+
     return parser.parse_args()
 
 
@@ -1301,11 +1311,22 @@ examples:
 # Entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
-def run_status() -> None:
+def run_status(args: argparse.Namespace) -> None:
     """Print a full seeding status report across every data store."""
     from rich.text import Text
 
-    def ok(v):  return f"[green]{v}[/green]"
+    # Connection params — CLI args override defaults
+    mongo_url   = args.mongo_url
+    pg_host     = getattr(args, "pg_host",     "localhost")
+    pg_port     = getattr(args, "pg_port",     5432)
+    pg_user     = getattr(args, "pg_user",     "deploy")
+    pg_password = getattr(args, "pg_password", "kaaslabs123")
+    pg_dbname   = getattr(args, "pg_dbname",   "padosme_indexing")
+    redis_host  = getattr(args, "redis_host",  "localhost")
+    redis_port  = getattr(args, "redis_port",  6379)
+    redis_pass  = getattr(args, "redis_password", None)
+
+    def ok(v):   return f"[green]{v}[/green]"
     def warn(v): return f"[yellow]{v}[/yellow]"
     def bad(v):  return f"[red]{v}[/red]"
 
@@ -1325,8 +1346,7 @@ def run_status() -> None:
     # ── MongoDB ───────────────────────────────────────────────────────────────
     try:
         client = pymongo.MongoClient(
-            "mongodb://deploy:kaaslabs123@localhost:27017/",
-            authSource="admin",
+            mongo_url,
             serverSelectionTimeoutMS=4000,
         )
         client.admin.command("ping")
@@ -1379,7 +1399,8 @@ def run_status() -> None:
     # ── Redis ─────────────────────────────────────────────────────────────────
     try:
         import redis as redislib
-        r = redislib.Redis(host="localhost", port=6379, decode_responses=True)
+        r = redislib.Redis(host=redis_host, port=redis_port,
+                           password=redis_pass, decode_responses=True)
         r.ping()
 
         total_keys   = r.dbsize()
@@ -1412,8 +1433,9 @@ def run_status() -> None:
     try:
         import psycopg2
         conn = psycopg2.connect(
-            "host=localhost port=5433 user=deploy "
-            "password=kaaslabs123 dbname=padosme_indexing"
+            host=pg_host, port=pg_port,
+            user=pg_user, password=pg_password,
+            dbname=pg_dbname,
         )
         cur = conn.cursor()
         for table in ("indexed_sellers", "indexed_catalog", "processed_events"):
@@ -1440,10 +1462,7 @@ def run_status() -> None:
     # ── Verdict ───────────────────────────────────────────────────────────────
     issues = []
     try:
-        client = pymongo.MongoClient(
-            "mongodb://deploy:kaaslabs123@localhost:27017/",
-            authSource="admin", serverSelectionTimeoutMS=4000,
-        )
+        client = pymongo.MongoClient(mongo_url, serverSelectionTimeoutMS=4000)
         ddb        = client["discovery"]
         discovered = ddb.sellers.count_documents({"seller_status": "DISCOVERED"})
         google_src = ddb.sellers.count_documents({"place_id": {"$exists": True, "$ne": ""}})
@@ -1464,12 +1483,12 @@ def run_status() -> None:
 
     try:
         import redis as redislib
-        r = redislib.Redis(host="localhost", port=6379, decode_responses=True)
+        r = redislib.Redis(host=redis_host, port=redis_port,
+                           password=redis_pass, decode_responses=True)
         r.ping()
         seller_keys = len(r.keys("seller:*"))
         import pymongo as pm2
-        c2 = pm2.MongoClient("mongodb://deploy:kaaslabs123@localhost:27017/",
-                              authSource="admin", serverSelectionTimeoutMS=4000)
+        c2 = pm2.MongoClient(mongo_url, serverSelectionTimeoutMS=4000)
         mongo_total = c2["catalog_db"].seller_geo.count_documents({})
         c2.close()
         if seller_keys < mongo_total:
@@ -1498,7 +1517,7 @@ def main() -> None:
     if args.debug:
         log.setLevel(logging.DEBUG)
     if args.status:
-        run_status()
+        run_status(args)
         return
     try:
         run_discovery(args)
