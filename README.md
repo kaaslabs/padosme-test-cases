@@ -1,6 +1,6 @@
 # Padosme — Test Cases & Seed Tools
 
-Scripts for seeding, searching, and health-testing the Padosme platform.
+Scripts for seeding, health-testing, and managing the Padosme platform data pipeline.
 
 ---
 
@@ -8,90 +8,161 @@ Scripts for seeding, searching, and health-testing the Padosme platform.
 
 | File | Purpose |
 |------|---------|
-| `seed_bangalore_sellers.py` | Seed real Bangalore sellers + interactive search shell |
-| `service_health_test.py` | Automated health checks across all 20 microservices |
+| `seed_bangalore_sellers.py` | Google Maps seller discovery importer + seeding status report |
+| `seed_databases.py` | Full database seeder for PostgreSQL + MongoDB integration test data |
+| `full_stack_test.py` | End-to-end full-stack integration test suite |
+| `service_health_test.py` | Automated health checks across all Padosme microservices |
 | `check_db.py` | View PostgreSQL and MongoDB seller data in table form |
+| `clear_indexes.py` | Wipe stale geo/search indexes from MongoDB, PostgreSQL, Redis |
 
 ---
 
-## seed_bangalore_sellers.py
-
-Seeds **170 verified real shops** across Bangalore into Redis, MongoDB, and PostgreSQL via the Padosme event pipeline, and provides an interactive search shell to query them.
-
-### Install
+## Install
 
 ```bash
 pip install requests rich pika PyJWT redis pymongo psycopg2-binary
 ```
 
-### Seed
+---
+
+## seed_bangalore_sellers.py
+
+Production-grade Google Maps seller discovery importer.
+
+Fetches **real businesses** from Google Places API across Bangalore metropolitan region
+and stores them as `DISCOVERED` sellers ready for platform onboarding.
+
+**Data policy:** Uses ONLY Google Places API — zero synthetic data.
+Stops safely on quota exhaustion with no fallback to fake data.
+
+### Check seeding status
 
 ```bash
-# Seed all 170 real sellers (publishes seller.verified events)
-python3 seed_bangalore_sellers.py --count 0 --skip-catalogue
-
-# Seed sellers + create catalogues
-python3 seed_bangalore_sellers.py --count 0
+python3 seed_bangalore_sellers.py --status
 ```
 
-### Search (interactive shell)
+Prints a full report across MongoDB, Redis, and PostgreSQL in one command.
+
+### Run discovery import
 
 ```bash
-python3 seed_bangalore_sellers.py --search
+python3 seed_bangalore_sellers.py \
+    --google-api-key YOUR_KEY \
+    --radius 45 \
+    --count 3000 \
+    --grid-size 10 \
+    --threads 8 \
+    --batch-size 100 \
+    --use-db-mode \
+    --include-phone \
+    --include-ratings \
+    --verbose
 ```
 
-At the `search>` prompt you can:
+Or set the key as an environment variable:
 
-```
-koramangala          → switch location to Koramangala, show nearby shops
-mango                → search sellers + catalogue items for "mango"
-indiranagar          → switch to Indiranagar
-:product biryani     → catalogue-only item search
-:radius 5            → set radius to 5 km
-:sort rating         → sort by rating
-:category Food       → filter by category
-:available           → only open shops
-:reset               → change your location
-:quit                → exit
+```bash
+export GOOGLE_API_KEY=YOUR_KEY
+python3 seed_bangalore_sellers.py --use-db-mode --verbose
 ```
 
-**Default radius: 15 km.** Auto-expands to 25 → 50 → 100 km if nothing is found nearby.
+### CLI arguments
 
-### Areas supported
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--google-api-key` | `$GOOGLE_API_KEY` | Google Places API key |
+| `--radius` | `45` | Scan radius in km from Bangalore centre |
+| `--grid-size` | `10` | Divide coverage into N×N grid cells |
+| `--category` | all | Limit to one type: `restaurant`, `pharmacy`, `grocery_or_supermarket`, `electronics_store`, `bakery`, `clothing_store`, `salon`, `hospital`, `hardware_store`, `mobile_store` |
+| `--count` | `3000` | Stop after inserting this many sellers |
+| `--threads` | `8` | Parallel scanner threads |
+| `--batch-size` | `100` | DB / API insert batch size |
+| `--use-db-mode` | — | Write directly to MongoDB `discovery.sellers` |
+| `--use-api-mode` | — | POST to catalogue-service REST API |
+| `--mongo-url` | `mongodb://localhost:27017/catalogue_db` | MongoDB connection URL |
+| `--api-url` | `http://localhost:8085` | Catalogue-service base URL |
+| `--include-phone` | — | Store `phone_number` from Google |
+| `--include-ratings` | — | Store `rating` and `user_ratings_total` |
+| `--verbose` | — | Print per-cell scan results |
+| `--status` | — | Show seeding status report then exit |
 
-282 Bangalore localities are recognised by name — just type the area at the `search>` prompt:
+### Seller document stored
 
-> MG Road, Brigade Road, Shivajinagar, Richmond Town, Malleswaram, Rajajinagar,
-> Vijayanagar, Jayanagar, JP Nagar, BTM Layout, Koramangala, HSR Layout,
-> Indiranagar, Whitefield, Marathahalli, Hebbal, Yelahanka, Thanisandra,
-> Hennur, RT Nagar, Rahamath Nagar, Sahakar Nagar, Kammanahalli, Nagawara,
-> Sanjay Nagar, Ganganagar, Rajankunte and 250+ more localities.
+```json
+{
+  "seller_id": "uuid4",
+  "place_id": "ChIJ...",
+  "name": "Meghana Foods",
+  "primary_category": "restaurant",
+  "categories": ["restaurant", "food", "point_of_interest"],
+  "latitude": 12.9716,
+  "longitude": 77.5946,
+  "address": "MG Road, Bengaluru, Karnataka",
+  "city": "Bangalore",
+  "location": { "type": "Point", "coordinates": [77.5946, 12.9716] },
+  "location_es": { "lat": 12.9716, "lon": 77.5946 },
+  "rating": 4.3,
+  "user_ratings_total": 2847,
+  "phone_number": "+91 98765 43210",
+  "website": "https://...",
+  "opening_hours": { "open_now": true, "weekday_text": ["Monday: 11 AM – 11 PM", "..."] },
+  "business_status": "OPERATIONAL",
+  "google_maps_url": "https://maps.google.com/?cid=...",
+  "seller_status": "DISCOVERED",
+  "invitation_sent": false,
+  "verified": false,
+  "onboarded": false,
+  "discovered_at": "2026-04-16T10:30:00+00:00"
+}
+```
 
-### Real shops included
+### Coverage
 
-| Area | Examples |
-|------|---------|
-| MG Road / Central | Koshy's, MTR 1924, The Only Place, Apsara Ice Creams, Nilgiris |
-| Malleswaram | CTR, Veena Stores, Janata Hotel, Brahmin's Coffee Bar |
-| Koramangala | Toit Brewpub, Meghana Foods, Truffles, Decathlon |
-| Indiranagar | B-Flat, The Bier Library, Hole in the Wall Cafe |
-| Whitefield | Windmills Craftworks, Forum Mall, Decathlon |
-| Jayanagar | Vidyarthi Bhavan, Pai Viceroy, Big Bazaar |
-| RT Nagar | Empire Restaurant, J B Bakery, Kudla, Rahhams |
-| Rahamath Nagar | Sichi Hotel, Al Noor Bakery, Rahmath Chicken Centre |
-| Kammanahalli | Al Amanah Cafe, Hotel Anugraha, Bhavani Bakery |
-| Hebbal | Hotel Dakshin, Columbia Asia Hospital, Om Sai Medical |
-| Rajankunte | Shree Sagar Darshini, Bismillah Hotel, Life Care Pharmacy |
-| + more | 170 real shops across all areas |
+Grid-based scan covering the full Bangalore metropolitan region:
+
+| Area | Included |
+|------|----------|
+| Central | MG Road, Shivajinagar, Commercial Street |
+| South | Koramangala, HSR Layout, BTM Layout, JP Nagar, Jayanagar, Electronic City |
+| East | Indiranagar, Whitefield, Marathahalli, Bellandur |
+| North | Hebbal, Yelahanka, Thanisandra, Nagawara, Hennur |
+| Northwest | Rajajinagar, Malleshwaram, Yeshwanthpur |
+| Airport corridor | Devanahalli, Kempegowda International Airport |
+| West | Kengeri, Vijayanagar |
+
+---
+
+## seed_databases.py
+
+Seeds all PostgreSQL databases and MongoDB with baseline test data
+used by the `full_stack_test.py` integration suite.
+
+```bash
+python3 seed_databases.py
+
+# Drop and recreate all data
+python3 seed_databases.py --reset
+```
+
+---
+
+## full_stack_test.py
+
+End-to-end integration test suite for the Padosme platform.
+
+```bash
+python3 full_stack_test.py
+```
+
+Runs automated tests across the full service stack and reports results.
 
 ---
 
 ## service_health_test.py
 
-Runs **10 automated checks** across all 20 Padosme microservices.
+Runs automated health checks across all Padosme microservices.
 
 ```bash
-pip install requests rich psycopg2-binary pymongo
 python3 service_health_test.py
 ```
 
@@ -108,24 +179,37 @@ python3 service_health_test.py
 | 9 | Ready EP | `/ready` or `/live` responds |
 | 10 | Version | Build/version info present |
 
-### Services covered
+Services covered: Auth (8080), User Profile (8081), Seller (8082), Coupon (8083),
+Discovery (8085), Catalogue (8086), Rating (8087), Analytics (8088), Indexing (8089) + more.
 
-| Service | Port |
-|---------|------|
-| Auth | 8080 |
-| User Profile | 8081 |
-| Seller | 8082 |
-| Coupon | 8083 |
-| Discovery | 8085 |
-| Catalogue | 8086 |
-| Rating | 8087 |
-| Analytics | 8088 |
-| Indexing | 8089 |
-| + 11 more | — |
+Results are saved to a `service_health_tests` table in each service's database after every run.
 
-**Total: 20 services × 10 tests = 200 test cases**
+---
 
-Results are saved to a `service_health_tests` table in each service's own database after every run.
+## check_db.py
+
+View seller data across stores in a formatted table.
+
+```bash
+python3 check_db.py
+```
+
+---
+
+## clear_indexes.py
+
+Wipe all stale geo/search indexes. Use before a full re-seed.
+
+Clears:
+- MongoDB `catalog_db.seller_geo`
+- MongoDB `discovery.sellers`
+- PostgreSQL `padosme_indexing.indexed_sellers`
+- PostgreSQL `padosme_indexing.indexed_catalog`
+- PostgreSQL `padosme_indexing.processed_events`
+
+```bash
+python3 clear_indexes.py
+```
 
 ---
 
@@ -133,4 +217,4 @@ Results are saved to a `service_health_tests` table in each service's own databa
 
 - Python 3.10+
 - All Padosme services running (locally or on the server)
-- Redis, MongoDB, PostgreSQL, RabbitMQ accessible
+- Redis, MongoDB, PostgreSQL, RabbitMQ accessible on `localhost`

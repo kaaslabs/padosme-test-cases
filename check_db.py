@@ -1,64 +1,111 @@
-import pymongo
-import psycopg2
-from rich.table import Table
-from rich.console import Console
-from rich import box
+#!/usr/bin/env python3
+"""
+Padosme — Database State Checker
+Shows counts and health across MongoDB, PostgreSQL, and Redis.
+"""
+import sys
+
+try:
+    import psycopg2
+    import pymongo
+    import redis
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+except ImportError as e:
+    print(f"[ERROR] Missing dependency: {e}")
+    print("Install with: pip install pymongo psycopg2-binary redis rich")
+    sys.exit(1)
+
+MONGO_URL  = "mongodb://deploy:kaaslabs123@localhost:27017/"
+PG_DSN     = "host=localhost port=5433 user=deploy password=kaaslabs123 dbname=padosme_indexing"
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
 
 console = Console()
-MONGO_URL = "mongodb://deploy:kaaslabs123@localhost:27017/?authSource=admin"
-PG_DSN    = "host=localhost user=deploy password=kaaslabs123 dbname=padosme_indexing"
 
-# ── PostgreSQL ────────────────────────────────────────────────────────────────
-try:
-    conn = psycopg2.connect(PG_DSN)
-    cur  = conn.cursor()
-    cur.execute("SELECT seller_id, name, latitude, longitude, status, last_indexed_at FROM indexed_sellers LIMIT 20")
-    rows = cur.fetchall()
-    cur.close(); conn.close()
 
-    t = Table(title="PostgreSQL — indexed_sellers", box=box.ROUNDED)
-    t.add_column("seller_id",  style="dim", width=14)
-    t.add_column("name",       min_width=22)
-    t.add_column("lat",        justify="right", width=10)
-    t.add_column("lon",        justify="right", width=10)
-    t.add_column("status",     width=8)
-    t.add_column("last_indexed_at", width=20)
-    for r in rows:
-        t.add_row(str(r[0])[:12], str(r[1]), f"{r[2]:.4f}", f"{r[3]:.4f}", str(r[4]), str(r[5])[:19])
-    console.print(t)
-except Exception as e:
-    console.print(f"[red]PG error: {e}[/red]")
+def check_mongo():
+    rows = []
+    try:
+        client = pymongo.MongoClient(MONGO_URL, authSource="admin", serverSelectionTimeoutMS=3000)
+        client.admin.command("ping")
 
-# ── MongoDB discovery.sellers ─────────────────────────────────────────────────
-try:
-    c    = pymongo.MongoClient(MONGO_URL, serverSelectionTimeoutMS=3000)
-    docs = list(c["discovery"].sellers.find().limit(20))
+        for db_name, collections in [
+            ("catalog_db", ["sellers", "catalogs", "items", "seller_geo"]),
+            ("discovery",  ["sellers"]),
+        ]:
+            db = client[db_name]
+            for col in collections:
+                try:
+                    count = db[col].count_documents({})
+                    rows.append((f"MongoDB/{db_name}", col, str(count), "[green]ok[/green]"))
+                except Exception as e:
+                    rows.append((f"MongoDB/{db_name}", col, "?", f"[red]{e}[/red]"))
+        client.close()
+    except Exception as e:
+        rows.append(("MongoDB", "—", "—", f"[red]unreachable: {e}[/red]"))
+    return rows
 
-    t = Table(title="MongoDB — discovery.sellers", box=box.ROUNDED)
-    t.add_column("seller_id",  style="dim", width=14)
-    t.add_column("name",       min_width=22)
-    t.add_column("category",   width=18)
-    t.add_column("city",       width=10)
-    t.add_column("status",     width=8)
-    t.add_column("available",  width=9)
-    for d in docs:
-        t.add_row(str(d.get("seller_id",""))[:12], d.get("name",""), d.get("category",""), d.get("city",""), d.get("status",""), str(d.get("available","")))
-    console.print(t)
-except Exception as e:
-    console.print(f"[red]Mongo discovery error: {e}[/red]")
 
-# ── MongoDB catalog_db.seller_geo ─────────────────────────────────────────────
-try:
-    docs = list(c["catalog_db"].seller_geo.find().limit(20))
+def check_postgres():
+    rows = []
+    try:
+        conn = psycopg2.connect(PG_DSN)
+        cur  = conn.cursor()
+        for table in ["indexed_sellers", "indexed_catalog", "processed_events", "index_jobs"]:
+            try:
+                cur.execute(f"SELECT COUNT(*) FROM {table}")
+                count = cur.fetchone()[0]
+                rows.append(("PostgreSQL/padosme_indexing", table, str(count), "[green]ok[/green]"))
+            except Exception as e:
+                rows.append(("PostgreSQL/padosme_indexing", table, "?", f"[red]{e}[/red]"))
+        cur.close()
+        conn.close()
+    except Exception as e:
+        rows.append(("PostgreSQL", "—", "—", f"[red]unreachable: {e}[/red]"))
+    return rows
 
-    t = Table(title="MongoDB — catalog_db.seller_geo", box=box.ROUNDED)
-    t.add_column("seller_id",  style="dim", width=14)
-    t.add_column("name",       min_width=22)
-    t.add_column("category",   width=18)
-    t.add_column("rating",     justify="right", width=7)
-    t.add_column("address",    min_width=28)
-    for d in docs:
-        t.add_row(str(d.get("seller_id",""))[:12], d.get("name",""), d.get("category",""), str(d.get("rating","")), d.get("address",""))
-    console.print(t)
-except Exception as e:
-    console.print(f"[red]Mongo catalog error: {e}[/red]")
+
+def check_redis():
+    rows = []
+    try:
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        r.ping()
+
+        seller_keys = r.execute_command("KEYS", "seller:*")
+        rows.append(("Redis", "seller:* keys", str(len(seller_keys)), "[green]ok[/green]"))
+
+        try:
+            info = r.execute_command("FT.INFO", "idx:sellers")
+            info_dict = dict(zip(info[::2], info[1::2]))
+            num_docs = info_dict.get("num_docs", "?")
+            rows.append(("Redis", "FT index idx:sellers", str(num_docs), "[green]ok[/green]"))
+        except Exception:
+            rows.append(("Redis", "FT index idx:sellers", "0", "[yellow]not created[/yellow]"))
+
+    except Exception as e:
+        rows.append(("Redis", "—", "—", f"[red]unreachable: {e}[/red]"))
+    return rows
+
+
+def main():
+    console.print()
+    console.print("[bold cyan]Padosme — Database State[/bold cyan]\n")
+
+    table = Table(box=box.ROUNDED, show_header=True)
+    table.add_column("Store",      style="dim",   min_width=30)
+    table.add_column("Collection / Table", min_width=25)
+    table.add_column("Rows", justify="right", min_width=10)
+    table.add_column("Status", min_width=15)
+
+    all_rows = check_mongo() + check_postgres() + check_redis()
+    for store, col, count, status in all_rows:
+        table.add_row(store, col, count, status)
+
+    console.print(table)
+    console.print()
+
+
+if __name__ == "__main__":
+    main()
