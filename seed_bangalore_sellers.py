@@ -2188,9 +2188,8 @@ def fetch_catalogue_sellers() -> list[dict]:
 
 def build_seller_for_sync(doc: dict, index: int) -> dict:
     """Turn a catalogue MongoDB doc into a seller dict with locality-matched GPS."""
-    rng = random.Random(index + 42000)
+    rng      = random.Random(index + 42000)
     locality = rng.choice(BANGALORE_LOCALITIES)
-    category = rng.choice(CATEGORIES)
     tier     = random.choices(SUBSCRIPTION_TIERS, weights=TIER_WEIGHTS, k=1)[0]
     lat, lon = locality_gps(locality, rng)
 
@@ -2198,6 +2197,18 @@ def build_seller_for_sync(doc: dict, index: int) -> dict:
     name = doc.get("name", "").strip()
     if len(name) < 3:
         name = f"{locality.title()} Store"
+
+    # Derive category from the embedded suffix ("Name — Category") written by seed
+    # mode, so Redis category matches the items seeded for this seller.
+    # Fall back to the deterministic seller_id-based assignment.
+    seller_id = doc.get("seller_id", "")
+    category = None
+    if " — " in name:
+        suffix = name.rsplit(" — ", 1)[-1].strip()
+        if suffix in CATEGORIES:
+            category = suffix
+    if category is None:
+        category = _category_for_seller(seller_id) if seller_id else rng.choice(CATEGORIES)
 
     return {
         "seller_id":         doc["seller_id"],
