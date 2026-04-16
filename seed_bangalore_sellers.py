@@ -25,6 +25,7 @@ Usage — search:
 
 Requirements:
     pip install requests rich pika PyJWT faker redis pymongo
+    (ip-api.com + OpenStreetMap Nominatim are used for live location/geocoding — no API key needed)
 """
 
 import argparse
@@ -1724,12 +1725,20 @@ def render_search_results(total: int, docs: list[dict], desc: str, limit: int) -
     tbl.add_column("Status",    justify="center", width=8)
     tbl.add_column("Address",   style="dim",   min_width=28)
     tbl.add_column("Phone",     style="green", min_width=14)
+    tbl.add_column("Lat",       style="dim",   width=10, justify="right")
+    tbl.add_column("Lon",       style="dim",   width=11, justify="right")
 
     for i, doc in enumerate(docs, 1):
         rating  = float(doc.get("rating", 0))
         tier    = doc.get("subscription_tier", "free")
         avail   = doc.get("available", "false")
         stars   = "★" * int(rating) + ("½" if (rating % 1) >= 0.5 else "") + "☆" * (5 - int(rating) - (1 if (rating % 1) >= 0.5 else 0))
+        try:
+            lat_str = f"{float(doc['lat']):.6f}"
+            lon_str = f"{float(doc['lon']):.6f}"
+        except (KeyError, ValueError, TypeError):
+            lat_str = "—"
+            lon_str = "—"
         tbl.add_row(
             str(i),
             doc.get("name", "—"),
@@ -1741,24 +1750,63 @@ def render_search_results(total: int, docs: list[dict], desc: str, limit: int) -
             "[green]open[/green]" if avail == "true" else "[dim]closed[/dim]",
             doc.get("address", "—"),
             doc.get("phone", "—") or "—",
+            lat_str,
+            lon_str,
         )
     console.print(tbl)
     console.print()
+
+
+def _detect_ip_location() -> tuple[float, float] | None:
+    """
+    Auto-detect approximate location from the machine's public IP via ip-api.com.
+    Returns (lat, lon) or None on failure.
+    """
+    try:
+        resp = requests.get("http://ip-api.com/json/", timeout=5)
+        data = resp.json()
+        if data.get("status") == "success":
+            return float(data["lat"]), float(data["lon"])
+    except Exception:
+        pass
+    return None
+
+
+def _geocode_nominatim(place: str) -> tuple[float, float] | None:
+    """
+    Resolve a place name to (lat, lon) via OpenStreetMap Nominatim.
+    Appends ', Bangalore, India' to bias results locally.
+    Returns None on failure or ambiguous result.
+    """
+    query = f"{place}, Bangalore, India"
+    try:
+        resp = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": query, "format": "json", "limit": "1"},
+            headers={"User-Agent": "padosme-seller-search/1.0"},
+            timeout=6,
+        )
+        results = resp.json()
+        if results:
+            return float(results[0]["lat"]), float(results[0]["lon"])
+    except Exception:
+        pass
+    return None
 
 
 def _resolve_location(raw: str) -> tuple[float, float] | None:
     """
     Try to resolve a location string to (lat, lon).
     Accepts:
-      - Area name  e.g. "Koramangala"
+      - Area name  e.g. "Koramangala"  (local dict first, then Nominatim live geocoding)
       - Coordinates e.g. "12.9352 77.6245" or "12.9352, 77.6245"
     Returns None if unrecognised.
     """
-    # Try area name lookup first
+    # Try area name lookup first (local dict — instant)
     key = raw.strip().lower()
     if key in BANGALORE_AREAS:
         return BANGALORE_AREAS[key]
-    # Partial match
+    # Partial match in local dict
     matches = [(name, coords) for name, coords in BANGALORE_AREAS.items() if key in name]
     if len(matches) == 1:
         return matches[0][1]
@@ -1776,14 +1824,18 @@ def _resolve_location(raw: str) -> tuple[float, float] | None:
                 return lat, lon
         except ValueError:
             pass
+
+    # Fall back to live Nominatim geocoding
+    console.print(f"[dim]  Geocoding '{raw}' via OpenStreetMap…[/dim]")
+    result = _geocode_nominatim(raw)
+    if result:
+        return result
     return None
 
 
 def _ask_location(default_lat: float, default_lon: float) -> tuple[float, float, bool]:
     """Prompt user for area name or GPS coordinates at startup."""
     console.print()
-    # Show available areas
-    # Show key areas grouped by zone so user can see RT Nagar cluster too
     _key_areas = [
         # Central
         "MG Road", "Brigade Road", "Shivajinagar", "Richmond Town",
@@ -1803,8 +1855,8 @@ def _ask_location(default_lat: float, default_lon: float) -> tuple[float, float,
         "[bold]Where are you?[/bold]\n"
         "[dim]Type an area name or GPS coordinates (lat lon).\n"
         f"Areas: [cyan]{area_list}[/cyan]\n"
-        "Or get GPS from Google Maps → long-press your spot.\n"
-        "Press [bold]Enter[/bold] to use Bangalore centre.[/dim]",
+        "Unknown areas are looked up live via OpenStreetMap.\n"
+        "Press [bold]Enter[/bold] to auto-detect your location from your IP.[/dim]",
         border_style="yellow",
         padding=(0, 1),
     ))
@@ -1812,17 +1864,23 @@ def _ask_location(default_lat: float, default_lon: float) -> tuple[float, float,
         try:
             raw = console.input("[yellow]Your area or location[/yellow]: ").strip()
         except (KeyboardInterrupt, EOFError):
-            return default_lat, default_lon
+            return default_lat, default_lon, False
 
         if not raw:
-            console.print(f"[dim]Using Bangalore centre: {default_lat}, {default_lon}[/dim]")
+            console.print("[dim]  Detecting your location…[/dim]")
+            detected = _detect_ip_location()
+            if detected:
+                lat, lon = detected
+                console.print(f"[green]Auto-detected: {lat:.6f}, {lon:.6f}[/green]")
+                return lat, lon, False
+            console.print(f"[yellow]  Could not detect location — using Bangalore centre: {default_lat}, {default_lon}[/yellow]")
             return default_lat, default_lon, False
 
         result = _resolve_location(raw)
         if result:
             lat, lon = result
             is_area = raw.strip().lower() in BANGALORE_AREAS
-            console.print(f"[green]Location set: {lat}, {lon}[/green]")
+            console.print(f"[green]Location set: {lat:.6f}, {lon:.6f}[/green]")
             return lat, lon, is_area
         console.print("[red]Not recognised. Try area name like 'Koramangala' or coords like '12.9352 77.6245'[/red]")
 
@@ -1974,7 +2032,10 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
                 state["user_lat"], state["user_lon"] = result
                 state["radius_km"] = 2.0   # tight radius — only that locality
                 state["sort_by"]   = "distance"
-                console.print(f"[green]Area set to '{query.title()}' — showing shops within 2 km, nearest first.[/green]")
+                console.print(
+                    f"[green]Area set to '{query.title()}' "
+                    f"({state['user_lat']:.6f}, {state['user_lon']:.6f}) — showing shops within 2 km, nearest first.[/green]"
+                )
                 _run()
             else:
                 console.print("[red]Not recognised. Try: :area Koramangala  or  :area Indiranagar[/red]")
@@ -2023,14 +2084,26 @@ def interactive_search(r: redis.Redis, start_lat: float = None, start_lon: float
         elif raw.startswith(":"):
             console.print(f"[red]Unknown command: {raw}[/red]")
         else:
-            # If the input matches a known area, treat it as a location switch
-            area_result = _resolve_location(raw)
-            if area_result and raw.strip().lower() in BANGALORE_AREAS:
+            # If the input matches a known area name, treat it as a location switch.
+            # For unknown places use :area <name> which will live-geocode via Nominatim.
+            _raw_key = raw.strip().lower()
+            area_result = None
+            if _raw_key in BANGALORE_AREAS:
+                area_result = BANGALORE_AREAS[_raw_key]
+            else:
+                _partial = [coords for name, coords in BANGALORE_AREAS.items() if _raw_key in name]
+                if len(_partial) == 1:
+                    area_result = _partial[0]
+
+            if area_result:
                 state["user_lat"], state["user_lon"] = area_result
                 state["radius_km"] = 2.0
                 state["sort_by"] = "distance"
                 state["keyword"] = ""
-                console.print(f"[green]Showing shops near {raw.title()} (within 2 km, nearest first)[/green]")
+                console.print(
+                    f"[green]Showing shops near {raw.title()} "
+                    f"({state['user_lat']:.6f}, {state['user_lon']:.6f}) — within 2 km, nearest first[/green]"
+                )
             else:
                 state["keyword"] = raw
             _run()
