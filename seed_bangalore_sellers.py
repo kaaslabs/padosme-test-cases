@@ -1293,6 +1293,15 @@ examples:
         action="store_true",
         help="Show seeding status across MongoDB, Redis, and PostgreSQL then exit",
     )
+    parser.add_argument(
+        "--search",
+        action="store_true",
+        help="Test the discovery service geo search and print nearby sellers then exit",
+    )
+    parser.add_argument("--search-lat",    type=float, default=12.9716, help="Latitude for --search test (default: 12.9716 — MG Road)")
+    parser.add_argument("--search-lon",    type=float, default=77.5946, help="Longitude for --search test (default: 77.5946 — MG Road)")
+    parser.add_argument("--search-radius", type=int,   default=3000,    help="Radius in metres for --search test (default: 3000)")
+    parser.add_argument("--search-url",    default="http://localhost:8085", help="Discovery service base URL (default: http://localhost:8085)")
 
     # ── Connection overrides (used by --status; defaults work on both servers) ─
     parser.add_argument("--pg-host",      default="localhost",       help="PostgreSQL host (default: localhost)")
@@ -1512,12 +1521,64 @@ def run_status(args: argparse.Namespace) -> None:
     console.print()
 
 
+def run_search(args: argparse.Namespace) -> None:
+    """Hit the discovery service nearby endpoint and print results."""
+    import urllib.request, urllib.error, json as _json
+
+    url = (
+        f"{args.search_url}/v1/sellers/nearby"
+        f"?lat={args.search_lat}&lon={args.search_lon}&radius={args.search_radius}"
+    )
+    console.print(f"\n[bold]Discovery service search test[/bold]")
+    console.print(f"URL : {url}\n")
+
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            raw  = resp.read().decode()
+            data = _json.loads(raw)
+    except urllib.error.HTTPError as e:
+        console.print(f"[red]HTTP {e.code}:[/red] {e.read().decode()[:500]}")
+        return
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        return
+
+    # handle both list and {"sellers": [...]} shapes
+    sellers = data if isinstance(data, list) else data.get("sellers") or data.get("data") or []
+
+    if not sellers:
+        console.print("[yellow]No sellers returned.[/yellow]")
+        console.print("Raw response:", raw[:500])
+        return
+
+    from rich.table import Table
+    tbl = Table(title=f"Nearby sellers (lat={args.search_lat}, lon={args.search_lon}, radius={args.search_radius}m)")
+    tbl.add_column("Name",     style="cyan",  max_width=35)
+    tbl.add_column("Category", style="green", max_width=20)
+    tbl.add_column("Rating",   justify="right")
+    tbl.add_column("Distance", justify="right")
+
+    for s in sellers[:20]:
+        tbl.add_row(
+            s.get("name", "—"),
+            s.get("category") or (s.get("categories") or ["—"])[0],
+            str(s.get("rating") or "—"),
+            f"{s.get('distance', '—')}m" if s.get("distance") else "—",
+        )
+
+    console.print(tbl)
+    console.print(f"\nTotal returned: {len(sellers)}")
+
+
 def main() -> None:
     args = parse_args()
     if args.debug:
         log.setLevel(logging.DEBUG)
     if args.status:
         run_status(args)
+        return
+    if args.search:
+        run_search(args)
         return
     try:
         run_discovery(args)
